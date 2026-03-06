@@ -8,13 +8,22 @@ void setup() {
   pinMode(button, INPUT);
 }
 
-void turnPorch()
+void turnOnPorch()
 {
   digitalWrite(porchlight, HIGH);
 }
-void turnHallway()
+void turnOnHallway()
 {
    digitalWrite(hallwaylight, HIGH);
+}
+void turnOffPorch()
+{
+    digitalWrite(porchlight, LOW);
+}
+void turnOffHallway()
+{
+   digitalWrite(hallwaylight, LOW);
+
 }
 bool getButtonState()
 {
@@ -32,14 +41,19 @@ void loop() {
 
   if (getButtonState())
   {
-    turnPorch();
-    turnHallway();
+    turnOnPorch();
+    turnOnHallway();
 
-    delay(30000);
-    digitalWrite(porchlight, LOW);
+    delay(3000);
+    turnOffPorch();
 
-    delay(30000);
-    digitalWrite(hallwaylight, LOW);
+    delay(3000);
+    turnOffHallway();
+
+    while (digitalRead(button) == HIGH)
+    {
+
+    }
   }
 
 }
