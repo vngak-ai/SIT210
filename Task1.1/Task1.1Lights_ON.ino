@@ -46,9 +46,6 @@ void loop()
     delay(30000);
     turnOffHallway();
 
-    while (getButtonState())   
-    {
-
-    }
+    while (getButtonState()){}
   }
 }
