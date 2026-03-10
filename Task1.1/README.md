@@ -10,15 +10,13 @@ The hardware components included are:
 
 Instead of putting all the codes in one block, they are all divided into seperated functions which perform certain tasks. 
 The following functions are used in the program:
--getButtonState()
+- getButtonState()
 This function reads the current state of the push button and returns whether the button is pressed or not.
--turnOnPorch()
+- turnOnPorch()
 This function turns on the porch LED connected to the Arduino.
--turnOffPorch()
+- turnOffPorch()
 This function turns off the porch LED after the specified time.
--turnOnHallway()
+- turnOnHallway()
 This function activates the hallway LED.
--turnOffHallway()
+- turnOffHallway()
 This function turns off the hallway LED after the required duration.
-
-(summary)

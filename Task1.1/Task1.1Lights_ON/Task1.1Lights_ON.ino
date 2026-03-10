@@ -8,26 +8,31 @@ void setup() {
   pinMode(button, INPUT_PULLUP);   
 }
 
-void turnOnPorch()
+//Turns on the porch LED connected to the Arduino
+void turnOnPorch() 
 {
   digitalWrite(porchlight, HIGH);
 }
 
+//Activates the hallway LED
 void turnOnHallway()
 {
   digitalWrite(hallwaylight, HIGH);
 }
 
+//Turns off the porch LED after the specified time
 void turnOffPorch()
 {
   digitalWrite(porchlight, LOW);
 }
 
+//Turns off the hallway LED after the required duration
 void turnOffHallway()
 {
   digitalWrite(hallwaylight, LOW);
 }
 
+//Reads the current state of the push button and returns whether the button is pressed or not
 bool getButtonState()
 {
   return digitalRead(button) == LOW;   
@@ -46,6 +51,6 @@ void loop()
     delay(30000);
     turnOffHallway();
 
-    while (getButtonState()){}
+    while (getButtonState()){} //Prevents holding button
   }
 }
