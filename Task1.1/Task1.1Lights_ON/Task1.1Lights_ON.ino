@@ -5,55 +5,50 @@ int hallwaylight = 11;
 void setup() {
   pinMode(porchlight, OUTPUT);
   pinMode(hallwaylight, OUTPUT);
-  pinMode(button, INPUT);
+  pinMode(button, INPUT_PULLUP);   
 }
 
 void turnOnPorch()
 {
   digitalWrite(porchlight, HIGH);
 }
+
 void turnOnHallway()
 {
-   digitalWrite(hallwaylight, HIGH);
+  digitalWrite(hallwaylight, HIGH);
 }
+
 void turnOffPorch()
 {
-    digitalWrite(porchlight, LOW);
+  digitalWrite(porchlight, LOW);
 }
+
 void turnOffHallway()
 {
-   digitalWrite(hallwaylight, LOW);
-
+  digitalWrite(hallwaylight, LOW);
 }
+
 bool getButtonState()
 {
-  if (digitalRead(button) == HIGH)
-  {
-    return true;
-  } 
-  else
-  {
-    return false;
-  }
+  return digitalRead(button) == LOW;   
 }
 
-void loop() {
-
+void loop()
+{
   if (getButtonState())
   {
     turnOnPorch();
     turnOnHallway();
 
-    delay(3000);
+    delay(30000);
     turnOffPorch();
 
-    delay(3000);
+    delay(30000);
     turnOffHallway();
 
-    while (digitalRead(button) == HIGH)
+    while (getButtonState())   
     {
 
     }
   }
-
 }
