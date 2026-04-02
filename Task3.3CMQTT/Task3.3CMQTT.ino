@@ -1,182 +1,198 @@
-/*
- * Task 4.1P - Hardware Interrupts
- * Linda's Smart Lighting System
- * 
- * Author: [TÊN BẠN]           ← CHỈ SỬA DÒNG NÀY
- * Student ID: [ID BẠN]        ← VÀ DÒNG NÀY
- * Date: [NGÀY NỘP]            ← VÀ DÒNG NÀY
- * 
- * Features:
- * - PIR Motion Sensor: Auto ON when dark
- * - Slider Switch: Manual control (backup)
- * - BH1750: Light level detection
- * - 2 LEDs: Porch + Hallway lights
- */
 
-#include <Wire.h>
-#include <BH1750.h>
+#include <WiFiNINA.h>
+#include <PubSubClient.h>
+#include "arduino_secrets.h"
 
-// ========== PIN DEFINITIONS ==========
-#define PIR_PIN 2        
-#define SWITCH_PIN 3     
-#define LED1_PIN 4       
-#define LED2_PIN 5       
+//WiFi credentials (from Sketch Secrets) ---
+const char* WIFI_SSID     = SECRET_SSID;
+const char* WIFI_PASSWORD = SECRET_PASS;
 
-// ========== GLOBAL VARIABLES ==========
-BH1750 lightMeter;
+//MQTT broker
+const char* MQTT_BROKER    = "broker.hivemq.com";
+const int   MQTT_PORT      = 1883;
+const char* MQTT_CLIENT_ID = "arduino-kyle-001";
+const char* TOPIC_WAVE     = "ES/Wave";
+const char* TOPIC_PAT      = "ES/Pat";
+const char* YOUR_NAME      = "Kyle";
 
-volatile bool motionDetected = false;
-volatile bool switchPressed = false;
+//Pin definitions
+#define TRIG_PIN  9
+#define ECHO_PIN  10
+#define LED1_PIN  4
+#define LED2_PIN  5
 
-volatile unsigned long lastMotionTime = 0;
-volatile unsigned long lastSwitchTime = 0;
+//Detection thresholds
+#define WAVE_NEAR_THRESHOLD  20
+#define WAVE_FAR_THRESHOLD   35
+#define PAT_THRESHOLD        8
+#define PAT_HOLD_TIME        600
+#define WAVE_TIMEOUT         1500
+#define COOLDOWN_TIME        1500
 
-bool lightsOn = false;
+//Global objects
+WiFiClient   wifiClient;
+PubSubClient mqttClient(wifiClient);
 
-const float DARK_THRESHOLD = 50.0;
-const unsigned long MOTION_DEBOUNCE = 2000;
-const unsigned long SWITCH_DEBOUNCE = 300;
+//Gesture state
+bool  handInZone      = false;
+long  handEnteredTime = 0;
+bool  wavePending     = false;
+long  waveStartTime   = 0;
+long  lastGestureTime = 0;
 
-// ========== INTERRUPT SERVICE ROUTINES ==========
 
-void pirISR() {
-  unsigned long currentTime = millis();
-  if (currentTime - lastMotionTime > MOTION_DEBOUNCE) {
-    motionDetected = true;
-    lastMotionTime = currentTime;
-  }
-}
+// WiFi
+void connectWiFi() {
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(WIFI_SSID);
 
-void switchISR() {
-  unsigned long currentTime = millis();
-  if (currentTime - lastSwitchTime > SWITCH_DEBOUNCE) {
-    switchPressed = true;
-    lastSwitchTime = currentTime;
-  }
-}
-
-// ========== SETUP ==========
-
-void setup() {
-  Serial.begin(9600);
-  
-  Wire.begin();
-  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
-    Serial.println("[BH1750] Initialized successfully");
-  } else {
-    Serial.println("[BH1750] ERROR - Check wiring!");
-  }
-  
-  pinMode(PIR_PIN, INPUT);
-  pinMode(SWITCH_PIN, INPUT_PULLUP);
-  pinMode(LED1_PIN, OUTPUT);
-  pinMode(LED2_PIN, OUTPUT);
-  
-  digitalWrite(LED1_PIN, LOW);
-  digitalWrite(LED2_PIN, LOW);
-  
-  attachInterrupt(digitalPinToInterrupt(PIR_PIN), pirISR, RISING);
-  attachInterrupt(digitalPinToInterrupt(SWITCH_PIN), switchISR, FALLING);
-  
-  Serial.println("\n╔═══════════════════════════════════╗");
-  Serial.println("║  Linda's Smart Lighting System   ║");
-  Serial.println("╚═══════════════════════════════════╝");
-  Serial.println("\nHardware Configuration:");
-  Serial.println("  PIR Sensor   → D2");
-  Serial.println("  Slider Switch → D3");
-  Serial.println("  LED1 (Porch) → D4");
-  Serial.println("  LED2 (Hall)  → D5");
-  Serial.println("  BH1750       → I2C (A4/A5)");
-  Serial.println("\nFeatures:");
-  Serial.println("  • Auto ON when motion + dark");
-  Serial.println("  • Manual control via switch");
-  Serial.println("  • Dark threshold: <" + String(DARK_THRESHOLD) + " lux");
-  Serial.println("\n[INFO] Waiting 30s for PIR to stabilize...");
-  
-  for (int i = 30; i > 0; i--) {
-    if (i % 5 == 0 || i <= 3) {
-      Serial.print("  ");
-      Serial.print(i);
-      Serial.println("s...");
-    }
+  while (WiFi.begin(WIFI_SSID, WIFI_PASSWORD) != WL_CONNECTED) {
+    Serial.print(".");
     delay(1000);
   }
-  
-  Serial.println("\n✓ System Ready!\n");
-  Serial.println("═══════════════════════════════════\n");
+
+  Serial.println("\nWiFi connected!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 }
 
-// ========== MAIN LOOP ==========
+// MQTT Callback - runs when message received
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  String message = "";
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
 
-void loop() {
-  if (motionDetected) {
-    motionDetected = false;
-    handleMotion();
+  Serial.print("Message received [");
+  Serial.print(topic);
+  Serial.print("]: ");
+  Serial.println(message);
+
+  if (String(topic) == TOPIC_WAVE) {
+    digitalWrite(LED1_PIN, HIGH);
+    digitalWrite(LED2_PIN, HIGH);
+    Serial.println("Lights ON");
   }
-  
-  if (switchPressed) {
-    switchPressed = false;
-    handleSwitch();
+
+  if (String(topic) == TOPIC_PAT) {
+    digitalWrite(LED1_PIN, LOW);
+    digitalWrite(LED2_PIN, LOW);
+    Serial.println("Lights OFF");
   }
-  
-  delay(10);
 }
 
-// ========== EVENT HANDLERS ==========
+// MQTT Connect
+void connectMQTT() {
+  while (!mqttClient.connected()) {
+    Serial.print("Connecting to MQTT broker...");
 
-void handleMotion() {
-  float lux = lightMeter.readLightLevel();
-  
-  Serial.print("┌─ [PIR] Motion detected");
-  Serial.println();
-  Serial.print("│  Light level: ");
-  Serial.print(lux);
-  Serial.print(" lux ");
-  
-  if (lux < DARK_THRESHOLD) {
-    Serial.println("(DARK)");
-    
-    if (!lightsOn) {
-      turnOnLights();
-      Serial.println("│  Action: Lights ON (Auto)");
+    if (mqttClient.connect(MQTT_CLIENT_ID)) {
+      Serial.println(" connected!");
+      mqttClient.subscribe(TOPIC_WAVE);
+      mqttClient.subscribe(TOPIC_PAT);
+      Serial.println("Subscribed to ES/Wave and ES/Pat");
     } else {
-      Serial.println("│  Action: Lights already ON");
+      Serial.print(" failed, rc=");
+      Serial.print(mqttClient.state());
+      Serial.println(" | retrying in 3s...");
+      delay(3000);
     }
-  } else {
-    Serial.println("(BRIGHT)");
-    Serial.println("│  Action: No action (Too bright)");
   }
-  
-  Serial.println("└─");
-  Serial.println();
 }
 
-void handleSwitch() {
-  Serial.print("┌─ [SWITCH] Manual control");
-  Serial.println();
-  
-  if (lightsOn) {
-    turnOffLights();
-    Serial.println("│  Action: Lights OFF");
-  } else {
-    turnOnLights();
-    Serial.println("│  Action: Lights ON");
+
+// Ultrasonic sensor
+float getDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+  if (duration == 0) return 999;
+
+  return duration * 0.034 / 2;
+}
+
+// Gesture detection
+// Wave = hand moves in then out quickly
+// Pat  = hand held very close for a moment
+void detectGesture(float distance) {
+  long now = millis();
+
+  if (now - lastGestureTime < COOLDOWN_TIME) return;
+
+  // Hand enters zone
+  if (!handInZone && distance < WAVE_NEAR_THRESHOLD) {
+    handInZone      = true;
+    handEnteredTime = now;
+    wavePending     = true;
+    waveStartTime   = now;
+    Serial.println("Hand detected - waiting for gesture...");
   }
-  
-  Serial.println("└─");
-  Serial.println();
+
+  // Hand stays in zone
+  if (handInZone && distance < WAVE_NEAR_THRESHOLD) {
+    // PAT: held very close long enough
+    if (distance < PAT_THRESHOLD && (now - handEnteredTime) >= PAT_HOLD_TIME) {
+      Serial.println("PAT detected! Publishing to ES/Pat...");
+      mqttClient.publish(TOPIC_PAT, YOUR_NAME);
+      lastGestureTime = now;
+      handInZone      = false;
+      wavePending     = false;
+    }
+    // Wave timeout
+    if (wavePending && (now - waveStartTime) > WAVE_TIMEOUT) {
+      wavePending = false;
+    }
+  }
+
+  // Hand leaves zone -> WAVE
+  if (handInZone && distance >= WAVE_FAR_THRESHOLD) {
+    if (wavePending && (now - waveStartTime) <= WAVE_TIMEOUT) {
+      Serial.println("WAVE detected! Publishing to ES/Wave...");
+      mqttClient.publish(TOPIC_WAVE, YOUR_NAME);
+      lastGestureTime = now;
+    }
+    handInZone  = false;
+    wavePending = false;
+  }
 }
 
-// ========== LIGHT CONTROL FUNCTIONS ==========
+// Setup
+void setup() {
+  Serial.begin(9600);
 
-void turnOnLights() {
-  digitalWrite(LED1_PIN, HIGH);
-  digitalWrite(LED2_PIN, HIGH);
-  lightsOn = true;
-}
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(LED1_PIN, OUTPUT);
+  pinMode(LED2_PIN, OUTPUT);
 
-void turnOffLights() {
   digitalWrite(LED1_PIN, LOW);
   digitalWrite(LED2_PIN, LOW);
-  lightsOn = false;
+
+  connectWiFi();
+
+  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+  mqttClient.setCallback(mqttCallback);
+
+  connectMQTT();
+
+  Serial.println("System ready! Wave or Pat to control lights.");
+}
+
+
+// Loop
+void loop() {
+  if (!mqttClient.connected()) {
+    connectMQTT();
+  }
+
+  mqttClient.loop();
+
+  float distance = getDistance();
+  detectGesture(distance);
+
+  delay(100);
 }
