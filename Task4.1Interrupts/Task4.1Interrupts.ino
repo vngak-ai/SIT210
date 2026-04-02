@@ -78,21 +78,6 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIR_PIN), pirISR, RISING);
   attachInterrupt(digitalPinToInterrupt(SWITCH_PIN), switchISR, FALLING);
   
-  Serial.println("\n╔═══════════════════════════════════╗");
-  Serial.println("║  Linda's Smart Lighting System   ║");
-  Serial.println("╚═══════════════════════════════════╝");
-  Serial.println("\nHardware Configuration:");
-  Serial.println("  PIR Sensor   → D2");
-  Serial.println("  Slider Switch → D3");
-  Serial.println("  LED1 (Porch) → D4");
-  Serial.println("  LED2 (Hall)  → D5");
-  Serial.println("  BH1750       → I2C (A4/A5)");
-  Serial.println("\nFeatures:");
-  Serial.println("  • Auto ON when motion + dark");
-  Serial.println("  • Manual control via switch");
-  Serial.println("  • Dark threshold: <" + String(DARK_THRESHOLD) + " lux");
-  Serial.println("\n[INFO] Waiting 30s for PIR to stabilize...");
-  
   for (int i = 30; i > 0; i--) {
     if (i % 5 == 0 || i <= 3) {
       Serial.print("  ");
