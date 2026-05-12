@@ -26,17 +26,29 @@ void loop() {
   ArduinoCloud.update();
 }
 
+// Main function that takes a string argument to control the correct LED
+void controlLight(String room) {
+  if (room == "living room") {
+    digitalWrite(PIN_LIVING_ROOM, living_room ? HIGH : LOW);
+    Serial.println("Living room: " + String(living_room ? "ON" : "OFF"));
+  } else if (room == "bathroom") {
+    digitalWrite(PIN_BATHROOM, bathroom ? HIGH : LOW);
+    Serial.println("Bathroom: " + String(bathroom ? "ON" : "OFF"));
+  } else if (room == "closet") {
+    digitalWrite(PIN_CLOSET, closet ? HIGH : LOW);
+    Serial.println("Closet: " + String(closet ? "ON" : "OFF"));
+  }
+}
+
+// Cloud callbacks — each calls controlLight() with the room name
 void onLivingRoomChange() {
-  digitalWrite(PIN_LIVING_ROOM, living_room ? HIGH : LOW);
-  Serial.println(living_room ? "Living room: ON" : "Living room: OFF");
+  controlLight("living room");
 }
 
 void onBathroomChange() {
-  digitalWrite(PIN_BATHROOM, bathroom ? HIGH : LOW);
-  Serial.println(bathroom ? "Bathroom: ON" : "Bathroom: OFF");
+  controlLight("bathroom");
 }
 
 void onClosetChange() {
-  digitalWrite(PIN_CLOSET, closet ? HIGH : LOW);
-  Serial.println(closet ? "Closet: ON" : "Closet: OFF");
+  controlLight("closet");
 }
