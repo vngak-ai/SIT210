@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Linda's Light Control</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 60px auto;
+      background: #f0f0f0;
+    }
+    h1 { text-align: center; color: #333; }
+    .light-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px 30px;
+      margin: 16px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .room-name { font-size: 18px; font-weight: bold; }
+    .switch { position: relative; width: 60px; height: 30px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #ccc; border-radius: 30px;
+      transition: 0.3s;
+    }
+    .slider:before {
+      content: "";
+      position: absolute;
+      width: 22px; height: 22px;
+      left: 4px; bottom: 4px;
+      background: white; border-radius: 50%;
+      transition: 0.3s;
+    }
+    input:checked + .slider { background: #f5a623; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    #status {
+      text-align: center;
+      margin-top: 20px;
+      color: #888;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>💡 Linda's Light Control</h1>
+
+  <div class="light-card">
+    <span class="room-name">🛋️ Living Room</span>
+    <label class="switch">
+      <input type="checkbox" onchange="toggleLight('living_room', this.checked)">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="light-card">
+    <span class="room-name">🚿 Bathroom</span>
+    <label class="switch">
+      <input type="checkbox" onchange="toggleLight('bathroom', this.checked)">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="light-card">
+    <span class="room-name">👗 Closet</span>
+    <label class="switch">
+      <input type="checkbox" onchange="toggleLight('closet', this.checked)">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <p id="status">Ready</p>
+
+<script>
+  async function toggleLight(variable, value) {
+    document.getElementById("status").textContent = "Sending command...";
+
+    const response = await fetch("http://localhost:3000/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ variable, value })
+    });
+
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById("status").textContent =
+        `✅ ${variable.replace("_", " ")}: ${value ? "ON" : "OFF"}`;
+    } else {
+      document.getElementById("status").textContent = "❌ Error: " + data.message;
+    }
+  }
+</script>
+
+</body>
+</html>
