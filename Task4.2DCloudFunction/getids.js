@@ -5,8 +5,8 @@ fetch('https://api2.arduino.cc/iot/v1/clients/token', {
   headers: {'Content-Type': 'application/x-www-form-urlencoded'},
   body: new URLSearchParams({
     grant_type: 'client_credentials',
-    client_id: 'qHY55woW0VoyVC9yyYrJVtMyMynC2gGV',
-    client_secret: 'Wu3FTpgNHlXHn43gp40oIRLZrPtWlBETqM66FOh9LVcPrDwk4uKopq8hB0M0eNPi',
+    client_id: 'NEW_CLIENT_ID',
+    client_secret: 'NEW_CLIENT_SECRET',
     audience: 'https://api2.arduino.cc/iot'
   })
 }).then(r => r.json()).then(d =>
